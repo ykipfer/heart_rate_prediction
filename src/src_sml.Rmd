@@ -1,0 +1,456 @@
+---
+title: ""
+author: ""
+date: ""
+output:
+  pdf_document:
+    toc: yes
+editor_options:
+  chunk_output_type: console
+urlcolor: blue
+fontsize: 12pt
+linestretch: 1.5
+---
+
+```{r knitr_init, echo=FALSE, cache=FALSE, warning=FALSE}
+library(knitr)
+
+### Global options
+options(max.print="150")
+opts_chunk$set(echo=FALSE,
+	             cache=FALSE,
+               prompt=FALSE,
+               tidy=TRUE,
+               comment=NA,
+               message=FALSE,
+               warning=FALSE)
+opts_knit$set(width=75)
+knitr::opts_chunk$set(fig.height = 5, fig.width =7 )
+rm(list = ls())
+```
+
+
+# Introduction
+Machine Learning techniques have been used to predict and classify various types of problems. However, one of the most promising fields of machine learning application can be found when dealing with medical diagnostics. 
+Medical diagnostics are the first and most crucial step in the treatment and prevention of diseases, and the correct diagnosis of a disease can save lives. However, medical experts do not always have the time, tools or expertise to provide accurate diagnostics. Especially developing countries with weak healthcare systems are in desperate need of scalable diagnostic methods that decrease the need for health care resources. While machine learning techniques will not replace human health care workers, they can significantly facilitate their work and make them more efficient.
+
+
+One of the leading causes of deaths in both developed and developing countries are cardiovascular diseases (CVDs). [According to the World Health Organization (WHO), CVDs cost 17.9 Million lives per year, of which over three-fourths are lost in developing countries.](https://www.who.int/news-room/fact-sheets/detail/cardiovascular-diseases-(cvds)) Additional to the human cost, CVDs also carry an immense economic cost. In a study on the economic cost of CVDs, Gheorghe et al. (2018), concluded that the annual costs of CVD care exceed the health expenditure per capita in most developing countries, with a single episode costing anywhere between 500 to 5000 USD depending on the type of CVD. Thus, the active prevention of CVDs is not only a health problem but can also impact the economic development of a country and its people.
+
+
+While CVDs can be prevented through behavioural changes, such as not smoking, eating a healthy diet and exercising, it is equally important to detect people who are already at risk, to prevent any further damage and costly treatments. Thus, to achieve early and reliable detection of CVDs, I propose using machine learning techniques to predict, whether a patient has heart disease.
+
+
+# Approach
+Modern medicine diagnoses heart disease based on the symptoms and biological markers a patient might show. Typical symptoms that might indicate the presence of heart disease are certain types of chest pain (angina), high blood pressure, the presence of high levels of cholesterol in the patient's blood, as well as arrhythmia (Lavanya & Supriya, 2019). Other factors that might increase the risk of heart disease are age and sex, with studies showing that older patients, as well as male patients, tend to show a higher risk for heart disease (Keyes, 2004).
+As such, the indicators of heart disease consist of numerical and categorical variables. If we want to predict the presence of heart disease within a patient, we can use these indicators to predict a binary outcome (Yes or No), which tells us whether a patient has heart disease or not. As such, we can use classification models for this type of problem.
+In the following, I will use two types of classification models, the C5.0 and Random Forest model, to classify patients according to their heart disease condition.
+
+
+The C5.0 algorithm creates decision trees by splitting the tree according to the principle of node purity. A node is pure if all instances within the node belong to the same class. Thus, C5.0 partitions the data into subsets of similar classes. The C5.0 algorithm is optimal for the prediction of the heart disease problem, because it is capable of handling nominal, as well as numerical features, performs automatic feature selection and delivers easily interpretable results. Additionally, it can also handle asymmetric costs, which prove especially useful in diagnostics of diseases. However, the C5.0 algorithm is prone to problems of under- and overfitting and small changes in the data or feature set can provide massively different results.
+
+
+Because of the weaknesses of the C5.0 algorithm, I also chose to include Random Forest as a second algorithm, to mitigate these shortcomings and produce more reliable results. The Random Forests is an ensemble algorithm which can be used both, for regression and classification tasks. Ensemble learning methods usually provide better predictive power than conventional machine learning algorithms by creating a multitude of sub-samples from the training set and training the model on each of the sub-samples, which reduces the problem of an overfitted model. The final prediction is gained by aggregating the results of all sub-samples. 
+Thus, the random forest algorithm creates multiple decision trees during the training of the model, all of which include different features (random feature selection). An instance is than classified as belonging to the modal prediction of all the individual trees. As such, the Random Forest model does not suffer from the same shortcomings as the C5.0 algorithm. However, the Random Forest model is less interpretable than the C5.0 algorithm, since it relies on the aggregated result of a multitude of decision trees.
+
+
+In the following sections, I will address the data collection and pre-processing steps, how I trained and evaluated the models and, lastly, conclude the findings of the study.
+
+
+# Data Collection and Processing
+The data was accessed through [Kaggle](https://www.kaggle.com/cherngs/heart-disease-cleveland-uci) and is based on the [Heart Disease Data Set from the University of California](https://archive.ics.uci.edu/ml/datasets/Heart+Disease). It consists of 297 observations on a total of 14 variables. Table 1 shows an overview of the dataset and provides a more detailed description of the variables included within the dataset.
+
+
+As can be seen, the variables consist of data on individual patients, ranging from demographic descriptions like the age and sex to biomarkers such as cholesterol and blood sugar levels, as well as electrocardiography diagnostics. As previously discussed, these variables might all serve as indicators for CVDs and should, therefore, be considered when predicting the presence of heart disease within a patient. 
+
+
+```{r results='hold'}
+# Load data
+data <-  read.csv("datasets_576697_1043970_heart_cleveland_upload.csv")
+
+# Show first few observations of the data
+library(dplyr)
+
+# Description of variables
+variable <- colnames(data)
+description <- c("age in years",
+                 "sex (1 = male; 0 = female)",
+                 "chest pain type;
+                 0: typical angina, 1: atypical angina, 2: non-anginal pain,
+                 3: asymptomatic",
+                 "resting blood pressure (in mm Hg on admission to the hospital",
+                 "serum cholestoral in mg/dl",
+                 "fasting blood sugar > 120 mg/dl (1 = true; 0 = false)",
+                 "resting electrocardiographic results; 0:normal, 
+                 1: ST-T wave abnormality, 2: left ventricular hypertrophy",
+                 "maximum heart rate achieved",
+                 "exercise induced angina (1 = yes; 0 = no)",
+                 "ST depression induced by exercise relative to rest",
+                 "the slope of the peak exercise ST segment; 0: upsloping, 1: flat,
+                 2: downsloping",
+                 "number of major vessels (0-3) colored by flourosopy",
+                 "Thalassemia; 0 = normal; 1 = fixed defect; 2 = reversable defect",
+                 "Outcome Variable: 0 = no disease, 1 = disease"
+                 )
+
+# Create table with descriptions
+table <- cbind(variable,description)
+```
+
+```{r results="asis"}
+library(kableExtra)
+library(xtable)
+
+# Create tables with data overview and variable description
+i1 <- kable(head(data),format = "latex", booktabs = TRUE) %>% 
+  kable_styling(latex_options = c("scale_down"), font_size = 12)
+i2 <- kable(table, format = "latex", booktabs = TRUE) %>% 
+  kable_styling(latex_options = c("scale_down"), font_size = 12)
+
+cat(c("\\begin{table}[!htb]
+    \\begin{minipage}{.9\\linewidth}
+      \\caption{Overview of Data and Variable Description}
+      \\centering",
+        i1, i2,
+    "\\end{minipage}
+\\end{table}"
+))  
+```
+
+
+The description of the variables lets us know, that the data consist of a mix of nominal and numerical features.
+However, when plotting the histograms of the variables, a notable observation is that the categorical variables are coded as numerical. Thus, in a first step I convert variables, such as sex or chest pain (cp), as well as the outcome variable (condition) into factors.
+
+
+```{r fig.pos ="hold"}
+# Descriptive Statistics
+## Summary statistics
+library(purrr)
+library(tidyr)
+library(ggplot2)
+
+## Variable Distributions
+data %>%
+  keep(is.numeric) %>% 
+  gather() %>% 
+  ggplot(aes(value)) +
+    facet_wrap(~ key, scales = "free") +
+    geom_histogram()
+```
+
+
+```{r}
+# Data Processing
+## Convert categorical variables into factor
+data$condition <- factor(data$condition,
+                      labels = c("no.disease", "disease"))
+data$sex <- factor(data$sex)
+data$cp <- factor(data$cp)
+data$fbs <- factor(data$fbs)
+data$ca <- factor(data$ca)
+data$thal <- factor(data$thal)
+data$restecg <- factor(data$restecg)
+data$slope <- factor(data$slope)
+data$exang <- factor(data$exang)
+```
+
+
+After having coded the categorical variables correctly, we take a second look at the distribution of the numerical variables. It is immediately noticeable that the numerical variables have widely differing scales, with variables such as *oldpeak* ranging from 0 to 6, while the variable *chol* ranges from 100 to 600. As such, before the creation of the models, I normalize all of the numerical variables, so that they only take on values between 0 and 1.
+With the pre-processing done, training the models can now be initiated.
+
+
+```{r}
+## Normalize numeric variables
+normit <- function(x) {
+  x.star <- (x-min(x))/(max(x)-min(x))
+  return(x.star)
+}
+data$age <- normit(data$age)
+data$trestbps <- normit(data$trestbps)
+data$chol <- normit(data$chol)
+data$thalach <- normit(data$thalach)
+data$oldpeak <- normit(data$oldpeak)
+
+# Final look at the data
+str(data)
+```
+
+
+# Model Training
+In the following, I will discuss how I split the data into training and test sets, as well as the parameters I chose to train the models.
+
+
+To train the C5.0 and the Random Forest model, I first split the data into a test and a training set, which I do through the split sample approach. I set aside 80% of the data for the training set, and the remaining 20% are assigned to the test set.
+Based on this partition, I train the C5.0 and the Random Forest models with the training data. Additionally, according to the rule of choosing $\sqrt{P}$ parameters at each split for classification problems, I set the Random Forest model to randomly choose $\sqrt13 \approx 4$ features at each split.
+
+
+```{r echo=TRUE}
+# Set Seed
+set.seed(9135, kind = "Mersenne-Twister", normal.kind = "Inversion")
+
+# C5.0
+## Split Data
+library(caret)
+indx <- createDataPartition(data$condition, p = .80, list = FALSE)
+dataTrain <- data[indx, 1:13]
+dataTest <- data[-indx, 1:13]
+labelTrain <- data[indx, 14, drop = TRUE]
+labelTest <- data[-indx, 14, drop = TRUE]
+
+## Train model
+library(C50)
+mytree1 <- C5.0(dataTrain, labelTrain)
+
+# Random Forest
+## Split Data
+library(randomForest)
+Train <- data[indx, 1:14]
+Test <- data[-indx, 1:14]
+
+## Train Model
+rf.fit <- randomForest(condition~.,
+                       data = Train,
+                       mtry = sqrt(13),
+                       importance = TRUE)
+```
+
+
+# Results
+After having trained the models, I turn to the evaluation and, possible improvements that can be added to the models. I first discuss the C5.0 model and then turn to the Random Forest model evaluation.
+
+
+## Model Evaluation - C5.0
+By looking at the model metrics, it becomes clear that the C5.0 model has managed to predict 86% of the instances in the test set correctly, which is quite an achievement. Furthermore, Cohen's Kappa tells us we are doing 73% better, than if we just assigned cases to classes by chance, which once again points towards our model performing well.
+
+
+```{r results="asis"}
+## Evaluation Metrics
+pred1 <- predict(mytree1, newdata = dataTest)
+mytable1 <- table(pred1,labelTest)
+mycon1 <- confusionMatrix(mytable1, positive = "disease")
+metrics1 <- round(as.data.frame(mycon1$overall),2)
+
+# Feature Importance
+imp <- C5imp(mytree1, metric = "usage", pct = TRUE)
+
+# Create tables wth feature importance and evaluation metrics
+t1 <- kable(metrics1, format = "latex", booktabs = TRUE)
+t2 <- kable(imp, format = "latex", booktabs = TRUE)
+
+library(xtable)
+
+cat(c("\\begin{table}[!htb]
+    \\begin{minipage}{.5\\linewidth}
+      \\caption{C5.0 Model Evalution Metrics}
+      \\centering",
+        t1,
+    "\\end{minipage}%
+    \\begin{minipage}{.5\\linewidth}
+      \\centering
+        \\caption{C5.0 Variable Importance}",
+        t2,
+    "\\end{minipage} 
+\\end{table}"
+))  
+```
+
+
+Plotting the decision tree for our model shows that the C5.0 algorithm created a tree with 14 nodes and 19 leaves, which is a very complex and hard to interpret decision tree. As such we see that an instance will be classified as having heart disease if it has a *thal* value of 1 or 2 and *cp* of 3. However, a further nine paths can be identified that will lead to an instance being classified as having a heart disease.
+
+
+While looking at the decision tree, already gives us a notion of the most important features for the classification of heart disease, the metrics for variable importance provide a numerical value, which tells us about the percentage of cases that were classified based on a feature. Table 3 shows that the variable *thal* has been used to make 100% of the classifications. Moreover, the variables *ca*, *cp* and *trestbps*  also contributed considerably to the classification of heart disease. The variables *chol*, *fbs* and *oldpeak*, however, do not seem to matter for the classification. In total, the model used 10 out of 13 features to some degree, to classify the instances.
+
+
+
+```{r fig.height = 20, fig.width =20, results="hold" }
+## Plot Decision Tree
+plot(mytree1, main = "Figure 1: C5.0 Decision Tree")
+```
+
+
+To sum up, the C5.0 model is overly complex. Additionally, since we are trying to predict heart disease to facilitate fast and early treatment, the prevention of false negatives (where we predict no disease, but the disease is actually present) should carry more weight in our prediction. Thus, to address this problem, I incorporate asymmetric costs into the model. 
+To train the C5.0 model with asymmetric costs, I first create a cost matrix, which will tell the model that false-negative should carry a three times higher cost, than false positives. Table 4 shows the cost matrix.
+Using the cost matrix, I re-train the model on the same training data.
+
+
+```{r results="hold"}
+# Model Improvement
+## Create Cost Matrix - 3 times higher cost of generating false negatives
+mat.dim <- list(c("no.disease", "disease"), c("no.disease", "disease"))
+names(mat.dim) <- c("Predicted", "Actual")
+cost.mat <- matrix(c(0, 1, 3, 0),
+                   nrow = 2,
+                   dimnames = mat.dim)
+
+cost <- as.data.frame(cost.mat)
+
+## Train new model with cost matrix
+mytree2 <- C5.0(dataTrain, labelTrain, costs = cost.mat)
+
+## model metrics
+pred2 <- predict(mytree2, newdata = dataTest)
+mytable2 <- table(pred2, labelTest)
+mycon2 <- confusionMatrix(mytable2, positive = "disease")
+metric2 <- round(as.data.frame(mycon2$overall),2)
+
+# Variable importance
+imp2 <- C5imp(mytree2, metric = "usage", pct = TRUE)
+```
+
+
+```{r results="asis"}
+# Tables showing cost matrix and evaluation metrics
+t3 <- kable(cost, format = "latex", booktabs = TRUE) %>% 
+  add_header_above(c(" " = 1,"Actual" = 2))
+t4 <- kable(metric2, format = "latex", booktabs = TRUE)
+
+cat(c("\\begin{table}[!htb]
+    \\begin{minipage}{.5\\linewidth}
+      \\caption{Cost Matrix}
+      \\centering",
+        t3,
+    "\\end{minipage}%
+    \\begin{minipage}{.5\\linewidth}
+      \\centering
+        \\caption{New C5.0 Model Evalution Metrics}",
+        t4,
+    "\\end{minipage} 
+\\end{table}"
+))  
+```
+
+
+
+The model evaluation metrics (table 5) show that the new model performs much worse than our previous model. The new model only attains a 75% accuracy and a Kappa of 51%. The decrease in accuracy can be attributed to the fact, that due to the asymmetric costs, the model prefers to classify someone without a disease as having a disease when it is not completely sure, to reduce false negatives. A look at the  confusion matrix shows that the asymmetric model creates no false negative predictions (0 instances where the new model predicted no disease, but the patient was actually sick). However, compared to the naive model it has a higher false positive classification (15 instances where the new model predicts disease, where no disease is present).
+
+
+```{r results='asis'}
+# Tables showing Confusion Matrices
+t5 <- kable(mytable1, format = "latex", booktabs = TRUE) %>% 
+  add_header_above(c(" " = 1,"Actual" = 2))
+t6 <- kable(mytable2, format = "latex", booktabs = TRUE) %>% 
+  add_header_above(c(" " = 1,"Actual" = 2))
+
+cat(c("\\begin{table}[!htb]
+    \\begin{minipage}{.5\\linewidth}
+      \\caption{Confusion Matrix:Naive C5.0}
+      \\centering",
+        t5,
+    "\\end{minipage}%
+    \\begin{minipage}{.5\\linewidth}
+      \\centering
+        \\caption{Confusion Matrix:Asymmetric C5.0}",
+        t6,
+    "\\end{minipage}
+\\end{table}"
+))  
+
+
+# Table showing variable importance
+ kable(imp2, format = "latex", booktabs = TRUE, caption = "New C5.0 Variable Importance Metrics") %>%
+  kable_styling(latex_options = "hold_position", font_size = 12)
+```
+
+
+Moreover, the implementation of asymmetric costs has also significantly decreased the complexity of the model. Our new decision tree (Figure 2) only has 7 nodes and 8 leaves, and 4 paths can be identified through which a patient would be classified as having an heart disease.
+
+```{r fig.width=10, fig.height=10, results="hold"}
+## Plot decision tree
+plot(mytree2, main ="Figure 2: New C5.0 Decision Tree")
+```
+
+With the model being of lesser complexity it is unsurprising, that the variable importance metrics have also changed. The new model relies mostly on the variables *thal*, *ca*, *age* and *oldpeak* for the classifications, while the variables *cp*, *trestbps*, *chol*, *restecg*, *thalach* and *exang* are ignored. The new model, thus, relies on fewer variables to classify heart disease. All in all, the new C5.0 model only needed 7 out of 13 variables to classify the instances.
+
+
+## Model Evaluation - Random Forest
+I now turn to the evaluation of the Random Forest model. Calling the model output we see that the model generated 500 trees and used 4 features at each split. Moreover we have an Out-Of-Bag (OOB) error estimate of 19.75%. This means that 80.25% of OOB samples were correctly classified by our model. 
+
+
+```{r results="hold"}
+# Model metrics
+rf.fit
+```
+
+
+Applying the Random Forest model on the test data gives us the metrics shown in table 9. It becomes immediately clear that the Random Forest model outperforms both C5.0 models. All in all we the model has an 90% accuracy. The Random Forest model counteracts the problem of overfitting prone in C5.0 models, through bagging and random feature selection. It creates a model that is much less prone to pick up on the noise present in the training data and through aggregation of the result from the individual tree, it is also able to create better predictions.
+
+
+```{r results="hold"}
+# Show model performance on test sample
+prediction <-predict(rf.fit, Test)
+conf <- confusionMatrix(prediction, Test$condition, positive='disease')
+kable(round(as.data.frame(conf[3]),2), format = "latex", booktabs = T, caption = "Random Forest Performance Metrics")
+```
+
+
+Looking at the confusion matrix, we can tell that the model predicts false negatives (2 observations where we predicted no disease, but the patient was actually sick). As already addressed in the C5.0 evaluation, false negatives are problematic for the diagnosis of heart disease. However, comparing the sensitivity values of all three models sheds more light on the capability of the models to predict true positives. As can be seen, the Random Forest and the naive C5.0 Model have the same sensitivity value, meaning they predict true positives equally well. The asymmetric C5.0 model, however, has a perfect sensitivity score. Thus, the asymmetric model managed to correctly classify all sick patients.
+
+
+```{r results="asis"}
+
+# Create table containing model sensitivities
+values <- round(c(mycon1$byClass[1], mycon2$byClass[1], conf$byClass[1]),2)
+models <- c("Naive", "Asymmetric", "RF")
+sens <- cbind(models,values)
+rownames(sens) <- c()
+
+# Tables showing model sensitivities and confusion matrix for random forest
+t7 <- kable(conf$table, format="latex", booktabs=TRUE) %>% 
+  add_header_above(c(" " = 1,"Actual" = 2))
+
+t8 <- kable(sens, format="latex", booktabs=TRUE)
+
+cat(c("\\begin{table}[!htb]
+    \\begin{minipage}{.5\\linewidth}
+      \\caption{Random Forest Confusion Matrix}
+      \\centering",
+        t7,
+    "\\end{minipage}%
+    \\begin{minipage}{.5\\linewidth}
+      \\centering
+        \\caption{Sensitivity By Model}",
+        t8,
+    "\\end{minipage}
+\\end{table}"
+))  
+```
+
+
+Lastly, turning once again to the topic of variable importance, Figure 3 depicts the importance of the features for the Random Forest model, according to the mean decrease in accuracy and mean decrease in Gini.
+
+
+On the one hand, the mean decrease in accuracy tells us about the feature importance, by showing us the mean decrease in accuracy the model would suffer, if the feature were to be removed.The more the accuracy of the model decreases due to the exclusion the feature, the more important that variable is.
+
+
+On the other hand, the mean decrease in Gini coefficient tells us how much a variable contributes to the purity/homogeneity of the nodes and leaves of the model. Higher values in the Gini coefficient indicate the presence of purer nodes and leaves within the model. The model experiences higher decrease in the Gini coefficient, when variables that create  higher purity nodes are removed.
+
+
+Looking at the Random Forest's variable importance metrics, it becomes apparent that according to the mean decrease in accuracy and the mean decrease in Gini, the most important variables for the correct classification of the model are *thal* and *ca*. While the most important variables for node purity are *thal* and *cp*. Removing these features would result in a 50% decrease in accuracy and a decrease of the Gini coefficient by 32%, thereby, significantly decreasing the performance of the model. Overall we can say that the feature importance of the Random Forest model is similar to those of the naive and asymmetric C5.0 model, in that *thal*, *ca* and *cp* tend to be the most important features.
+
+
+```{r results="hold"}
+## Show variable importance
+varImpPlot(rf.fit, main="Figure 3: Random Forest Variable Importance")
+```
+
+
+# Discussion & Conclusion
+This study set out to create a model capable of predicting heart disease in patients, using Data on 13 heart disease indicators of 297 patients. I chose to apply two types of classification algorithms to solve the classification problem, the C5.0 and the Random Forest algorithm. The choice of these two models was mainly driven by the desire to balance out the weakness in one model, with the strength of another model. Additionally, I created two types of C5.0 models. One with asymmetric costs and one without (the naive model).
+
+
+The study found that the model that performed best in predicting heart disease was the Random Forest model with an accuracy of 90%. The naive C5.0 model provided the second-best classification performance 86%, while the asymmetric C5.0 model performed the worst with only a 75% accuracy. The most important feature for the prediction of heart disease across all three models seemed to be the presence of *thalassemia* (thal), *chest pain type* (cp) and the *number of major vessels coloured by *flourosopy* (ca). Moreover, the findings on feature importance do not only allow for the creation of less complex and more efficient models, it also permits healthcare workers to more narrowly focus on specific indicators, reducing the need for more extensive lab tests and, thereby, costly diagnostics.
+
+
+The final question that needs to be discussed is, which model should be preferred? 
+On the one hand, through boosting and random feature selection, the Random Forest model manages to mitigate the danger of overfitting usually present in overly complex C5.0 models and produce better predictions. 
+On the other hand, the C5.0 models are more easily interpretable than the Random Forest, since they allow for the depiction of the decision rules used for the classification. The ease of interpretation is an important aspect, especially in the medical field, where wrong decisions might cost lives, it is important to create models that both patients and doctors can comprehend. Furthermore, when dealing with classification models used in medical diagnostics, we want to ensure that our model correctly identifies all patients in need of treatment. Since the early treatment of a disease can significantly improve the survival chance, the model should be overly careful when deciding whether or not to classify someone as not having the disease and should prefer assigning healthy patients as sick, instead of sick patients as healthy. As such, given the aforementioned requirements our model should fulfill, it becomes apparent that the asymmetric C5.0 model is the best fit. Through the use of asymmetric costs, we can constrain the model to predict less false negatives. While the asymmetric cost significantly deteriorates the overall accuracy of the model, it should be a tradeoff we are willing to make, in exchange for better identification of sick patients. Across all three models, the asymmetric C5.0 model had the highest sensitivity and was able to successfully identify all sick patients.
+
+
+# References
+Gheorghe, A., Griffiths, U., Murphy, A., Legido-Quigley, H., Lamptey, P., & Perel, P. (2018). The economic burden of cardiovascular disease and hypertension in low-and middle-income countries: a systematic review. BMC Public Health, 18(1), 975.
+
+
+Lavanya, C., & Supriya, A. (2019). Hybrid Machine Learning Strategies for Heart Disease Prediction in Healthcare. Journal of the Gujarat Research Society, 21(16), 2553-2559.
+
+
+Keyes, C. L. (2004). The nexus of cardiovascular disease and depression revisited: The complete mental health perspective and the moderating role of age and gender. Aging & Mental Health, 8(3), 266-274.
